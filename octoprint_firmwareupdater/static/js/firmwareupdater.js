@@ -12,6 +12,7 @@ $(function() {
         self.showAdvancedConfig = ko.observable(false);
         self.showAvrdudeConfig = ko.observable(false);
         self.showBossacConfig = ko.observable(false);
+        self.showHidBootloaderConfig = ko.observable(false);
         self.showPostflashConfig = ko.observable(false);
         self.configEnablePostflashGcode = ko.observable();
         self.configPostflashGcode = ko.observable();
@@ -85,12 +86,19 @@ $(function() {
             if(value == 'avrdude') {
                 self.showBossacConfig(false);
                 self.showAvrdudeConfig(true);
+                self.showHidBootloaderConfig(false);
             } else if(value == 'bossac') {
                 self.showBossacConfig(true);
                 self.showAvrdudeConfig(false);
+                self.showHidBootloaderConfig(false);
+            } else if(value === 'hid_bootloader') {
+                self.showBossacConfig(false);
+                self.showAvrdudeConfig(false);
+                self.showHidBootloaderConfig(true);
             } else {
                 self.showBossacConfig(false);
                 self.showAvrdudeConfig(false);
+                self.showHidBootloaderConfig(false);
             }
          });
 
@@ -130,6 +138,10 @@ $(function() {
 
             if (self.printerState.isPrinting() || self.printerState.isPaused()){
                 alert = gettext("Printer is printing. Please wait for the print to be finished.");
+            }
+
+            if (!self.printerState.isOperational()) {
+                alert = gettext("Printer must be connected. Please connect to printer.")
             }
 
             if (!self.settingsViewModel.settings.plugins.firmwareupdater.flash_method()){
@@ -261,6 +273,10 @@ $(function() {
                                     message = gettext("Cannot read file to flash.");
                                     break;
                                 }
+                                case "state": {
+                                    message = gettext("Printer must be connected.");
+                                    break;
+                                }
                                 case "already_flashing": {
                                     message = gettext("Already flashing.");
                                 }
@@ -288,6 +304,14 @@ $(function() {
                                 case "disconnecting": {
                                     message = gettext("Disconnecting printer...");
                                     break;
+                                }
+                                case "uploading": {
+                                    message = gettext("Uploading firmware to printer...");
+                                    break;
+                                }
+                                case "rebooting": {
+                                    message = getttext("Rebooting printer with new firmware...");
+                                    break
                                 }
                                 case "startingflash": {
                                     self.isBusy(true);
