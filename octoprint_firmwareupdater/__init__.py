@@ -463,7 +463,7 @@ class FirmwareupdaterPlugin(octoprint.plugin.BlueprintPlugin,
 		assert(firmware is not None)
 
 		hid_bootloader_path = self._settings.get(["hid_bootloader_path"])
-		hid_bootloader_command = ["sudo", hid_bootloader_path, '-mmcu=at90usb1286', '-v', '-w', firmware]
+		hid_bootloader_command = [hid_bootloader_path, '-mmcu=at90usb1286', '-v', '-w', firmware]
 		working_dir = os.path.dirname(hid_bootloader_path)
 
 		import sarge
