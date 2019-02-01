@@ -474,6 +474,7 @@ class FirmwareupdaterPlugin(octoprint.plugin.BlueprintPlugin,
 		try:
 			p = sarge.run(hid_bootloader_command, cwd=working_dir, async=True, stdout=sarge.Capture(), stderr=sarge.Capture())
 			p.wait_events()
+			self._printer.commands("M67")
 
 			while p.returncode is None:
 				output = p.stderr.read(timeout=0.5)
@@ -486,10 +487,6 @@ class FirmwareupdaterPlugin(octoprint.plugin.BlueprintPlugin,
 					if line.endswith("\r"):
 						line = line[:-1]
 					self._console_logger.info(u"> {}".format(line))
-
-				if "Waiting for Teensy device..." in output:
-					self._printer.commands("M67")
-					self._send_status("progress", subtype="rebooting")
 
 			
 			if p.returncode == 0:
