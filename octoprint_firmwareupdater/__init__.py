@@ -488,12 +488,12 @@ class FirmwareupdaterPlugin(octoprint.plugin.BlueprintPlugin,
 						line = line[:-1]
 					self._console_logger.info(u"> {}".format(line))
 
-			
+
 			if p.returncode == 0:
 				return True
 			else:
 				raise FlashException("HID Bootloader returned code {returncode}".format(returncode=p.returncode))
-		
+
 		except FlashException as ex:
 			self._logger.error(u"Flashing failed. {error}.".format(error=ex.reason))
 			self._send_status("flasherror", message=ex.reason)
@@ -554,7 +554,7 @@ class FirmwareupdaterPlugin(octoprint.plugin.BlueprintPlugin,
 			"avrdude_disableverify": None,
 			"bossac_path": None,
 			"bossac_disableverify": None,
-			"hid_bootloader_path": None,
+			"hid_bootloader_path": 'hid_bootloader_cli',
 			"postflash_gcode": None,
 			"run_postflash_gcode": False,
 			"enable_postflash_gcode": None,
