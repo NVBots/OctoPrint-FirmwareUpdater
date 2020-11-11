@@ -49,8 +49,8 @@ class FirmwareupdaterPlugin(octoprint.plugin.BlueprintPlugin,
 	def initialize(self):
 		# TODO: make method configurable via new plugin hook "octoprint.plugin.firmwareupdater.flash_methods",
 		# also include prechecks
-		self._flash_prechecks = dict(avrdude=self._check_avrdude, bossac=self._check_bossac)
-		self._flash_methods = dict(avrdude=self._flash_avrdude, bossac=self._flash_bossac)
+		self._flash_prechecks = dict(hid_bootloader=self._check_hid_bootloader, avrdude=self._check_avrdude, bossac=self._check_bossac)
+		self._flash_methods = dict(hid_bootloader=self._flash_hid_bootloader, avrdude=self._flash_avrdude, bossac=self._flash_bossac)
 
 		console_logging_handler = logging.handlers.RotatingFileHandler(self._settings.get_plugin_logfile_path(postfix="console"), maxBytes=2*1024*1024)
 		console_logging_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
@@ -108,6 +108,12 @@ class FirmwareupdaterPlugin(octoprint.plugin.BlueprintPlugin,
 			return flask.make_response(error_message, 400)
 
 		method = self._settings.get(["flash_method"])
+
+		if method == 'hid_bootloader' and not self._printer.is_operational():
+			error_message = "Cannot flash firmware, printer is not connected"
+			self._send_status("flasherror", subtype="state", message=error_message)
+			return flask.make_response(error_message, 409)
+
 
 		if method in self._flash_prechecks:
 			if not self._flash_prechecks[method]():
@@ -210,9 +216,10 @@ class FirmwareupdaterPlugin(octoprint.plugin.BlueprintPlugin,
 				_, current_port, current_baudrate, current_profile = self._printer.get_current_connection()
 
 				reconnect = (current_port, current_baudrate, current_profile)
-				self._logger.info("Disconnecting from printer")
-				self._send_status("progress", subtype="disconnecting")
-				self._printer.disconnect()
+				if method != 'hid_bootloader':
+					self._logger.info("Disconnecting from printer")
+					self._send_status("progress", subtype="disconnecting")
+					self._printer.disconnect()
 
 			self._send_status("progress", subtype="startingflash")
 
@@ -452,6 +459,69 @@ class FirmwareupdaterPlugin(octoprint.plugin.BlueprintPlugin,
 		else:
 			return True
 
+	def _flash_hid_bootloader(self, firmware=None, printer_port=None):
+		assert(firmware is not None)
+
+		hid_bootloader_path = self._settings.get(["hid_bootloader_path"])
+		hid_bootloader_command = [hid_bootloader_path, '-mmcu=at90usb1286', '-v', '-w', firmware]
+		working_dir = os.path.dirname(hid_bootloader_path)
+
+		import sarge
+		self._logger.info(u"Running %r in %s" % (' '.join(hid_bootloader_command), working_dir))
+		self._console_logger.info(" ".join(hid_bootloader_command))
+
+		self._send_status("progress", subtype="uploading")
+		try:
+			p = sarge.run(hid_bootloader_command, cwd=working_dir, async=True, stdout=sarge.Capture(), stderr=sarge.Capture())
+			p.wait_events()
+			self._printer.commands("M67")
+
+			while p.returncode is None:
+				output = p.stderr.read(timeout=0.5)
+
+				if not output:
+					p.commands[0].poll()
+					continue
+
+				for line in output.split("\n"):
+					if line.endswith("\r"):
+						line = line[:-1]
+					self._console_logger.info(u"> {}".format(line))
+
+			
+			if p.returncode == 0:
+				return True
+			else:
+				raise FlashException("HID Bootloader returned code {returncode}".format(returncode=p.returncode))
+		
+		except FlashException as ex:
+			self._logger.error(u"Flashing failed. {error}.".format(error=ex.reason))
+			self._send_status("flasherror", message=ex.reason)
+			return False
+		except:
+			self._logger.exception(u"Flashing failed. Unexpected error.")
+			self._send_status("flasherror")
+			return False
+
+	def _check_hid_bootloader(self):
+		hid_bootloader_path = self._settings.get(["hid_bootloader_path"])
+		pattern = re.compile("^(\/[^\0/]+)+$")
+		if not hid_bootloader_path:
+			hid_bootloader_path = ""
+		if not pattern.match(hid_bootloader_path):
+			self._logger.error(u"Path to hid_bootloader is not valid: {path}".format(path=hid_bootloader_path))
+			return False
+		elif not os.path.exists(hid_bootloader_path):
+			self._logger.error(u"Path to hid_bootloader does not exist: {path}".format(path=hid_bootloader_path))
+			return False
+		elif not os.path.isfile(hid_bootloader_path):
+			self._logger.error(u"Path to hid_bootloader is not a file: {path}".format(path=hid_bootloader_path))
+			return False
+		elif not os.access(hid_bootloader_path, os.X_OK):
+			self._logger.error(u"Path to hid_bootloader is not executable: {path}".format(path=hid_bootloader_path))
+			return False
+		return True
+
 	def _reset_1200(self, printer_port=None):
 		assert(printer_port is not None)
 		self._logger.info(u"Toggling '{port}' at 1200bps".format(port=printer_port))
@@ -484,6 +554,7 @@ class FirmwareupdaterPlugin(octoprint.plugin.BlueprintPlugin,
 			"avrdude_disableverify": None,
 			"bossac_path": None,
 			"bossac_disableverify": None,
+			"hid_bootloader_path": None,
 			"postflash_gcode": None,
 			"run_postflash_gcode": False,
 			"enable_postflash_gcode": None,

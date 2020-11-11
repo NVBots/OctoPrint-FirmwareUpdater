@@ -61,7 +61,8 @@
                 <li>Click the wrench icon in the top right corner and configure the settings for the plugin</li>
                 <li>Either click the 'Browse' button to upload a file, or provide a URL to a file</li>
                 <li>Click the appropriate 'Flash from' button</li>
-                <li>Wait for the flash to complete</li>
+                <li>Wait for the flash to complete (Ignore Disconnection Errors)</li>
+                <li>Reconnect to use Printer</li>
             </ol>
             <i class="icon-warning-sign"></i>&nbsp;&nbsp;<h5 style="display: inline-block">Warning</h5>
             <p>As with any firmware flashing there is a risk that things may go wrong.</p>
@@ -86,13 +87,13 @@
                     <div class="controls">
 	                    <select data-bind="value: configFlashMethod">
                             <option></option>
-                            <option value=avrdude>avrdude (Atmel AVR Family)</option>
-                            <option value=bossac>bossac (Atmel SAM Family)</option>
+                            <option value=hid_bootloader>hid_bootloader (CI Default)</option>
+                            {# <option value=avrdude>avrdude (Atmel AVR Family)</option> #}
+                            {# <option value=bossac>bossac (Atmel SAM Family)</option> #}
                         </select>
                     </div>
                 </div>
                 <hr>
-
                 <!-- avrdude options for 8-bit MCUs -->
                 <div data-bind="visible: showAvrdudeConfig">
                     <div class="control-group">
@@ -220,7 +221,7 @@
                     <hr>
                 </div>
 
-                <div data-bind="visible: !showPostflashConfig() && (showAvrdudeConfig() || showBossacConfig())">
+                <div data-bind="visible: !showPostflashConfig() && (showAvrdudeConfig() || showBossacConfig() || showHidBootloaderConfig())">
                     <label data-bind="click: togglePostflashConfig" >
                         <i class="icon-chevron-right icon-fixed-width"></i>Post-flash Settings
                     </label>
